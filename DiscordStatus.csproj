@@ -1,0 +1,24 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net35</TargetFramework>
+	<LangVersion>latest</LangVersion>
+	<OutputPath>output/$(configuration)</OutputPath>
+	<AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Remove="Dependencies\x86\discord_game_sdk.dll" />
+    <None Remove="Dependencies\x86_64\discord_game_sdk.dll" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="Dependencies\x86\discord_game_sdk.dll" />
+    <EmbeddedResource Include="Dependencies\x86_64\discord_game_sdk.dll" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="LavaGang.MelonLoader" Version="0.6.1" />
+  </ItemGroup>
+
+</Project>

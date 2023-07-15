@@ -1,107 +1,106 @@
-﻿using MelonLoader;
+﻿using Discord;
+using MelonLoader;
 using System;
-using Discord;
 using System.Threading;
 
-[assembly: MelonInfo(typeof(DiscordStatus.DiscordStatusPlugin), "Discord Status", "1.0.0", "SlidyDev")]
-[assembly: MelonColor(ConsoleColor.DarkCyan)]
+[assembly: MelonInfo(typeof(DiscordStatus.DiscordStatusPlugin), "Discord Status", "2.0.0", "slxdy")]
+[assembly: MelonColor(255, 100, 0, 255)]
 
-namespace DiscordStatus
+namespace DiscordStatus;
+
+public class DiscordStatusPlugin : MelonPlugin
 {
-    public class DiscordStatusPlugin : MelonPlugin
+    public const long AppId = 977473789854089226;
+    private Discord.Discord discordClient;
+    private ActivityManager activityManager;
+
+    private bool gameClosing;
+    private bool gameStarted;
+    public long gameStartedTime;
+
+    public override void OnPreInitialization()
     {
-        public const long AppId = 977473789854089226;
-        public Discord.Discord discordClient;
-        public ActivityManager activityManager;
+        DiscordLibraryLoader.LoadLibrary();
+        InitializeDiscord();
+        UpdateActivity();
+        new Thread(DiscordLoopThread).Start();
+    }
 
-        private bool gameClosing;
-        public bool GameStarted { get; private set; }
-        public long gameStartedTime;
+    public override void OnLateInitializeMelon()
+    {
+        gameStarted = true;
+        gameStartedTime = (long)(DateTime.UtcNow - new DateTime(1970, 1, 1)).TotalSeconds;
 
-        public override void OnPreInitialization()
+        UpdateActivity();
+    }
+
+    public override void OnDeinitializeMelon()
+    {
+        gameClosing = true;
+    }
+
+    public void DiscordLoopThread()
+    {
+        for (; ; )
         {
-            DiscordLibraryLoader.LoadLibrary();
-            InitializeDiscord();
-            UpdateActivity();
-            new Thread(DiscordLoopThread).Start();
-        }
+            if (gameClosing)
+                break;
 
-        public override void OnApplicationLateStart()
+            discordClient?.RunCallbacks();
+            Thread.Sleep(200);
+        }
+    }
+
+    public void InitializeDiscord()
+    {
+        discordClient = new Discord.Discord(AppId, (ulong)CreateFlags.NoRequireDiscord);
+        discordClient.SetLogHook(LogLevel.Debug, DiscordLogHandler);
+
+        activityManager = discordClient.GetActivityManager();
+    }
+
+    private void DiscordLogHandler(LogLevel level, string message)
+    {
+        switch (level)
         {
-            GameStarted = true;
-            gameStartedTime = (long)(DateTime.UtcNow - new DateTime(1970, 1, 1)).TotalSeconds;
+            case LogLevel.Info:
+            case LogLevel.Debug:
+                LoggerInstance.Msg(message);
+                break;
 
-            UpdateActivity();
+            case LogLevel.Warn:
+                LoggerInstance.Warning(message);
+                break;
+
+            case LogLevel.Error:
+                LoggerInstance.Error(message);
+                break;
         }
+    }
 
-        public override void OnApplicationQuit()
+    public void UpdateActivity()
+    {
+        var activity = new Activity
         {
-            gameClosing = true;
-        }
+            Details = $"Playing {MelonUtils.CurrentGameAttribute.Name}"
+        };
 
-        public void DiscordLoopThread()
-        {
-            for (; ; )
-            {
-                if (gameClosing)
-                    break;
+        activity.Assets.LargeImage = "ml_icon";
+        activity.Name = $"MelonLoader {BuildInfo.Version}";
+        activity.Instance = true;
+        activity.Assets.LargeText = activity.Name;
 
-                discordClient.RunCallbacks();
-                Thread.Sleep(200);
-            }
-        }
+        var modsCount = MelonMod.RegisteredMelons.Count;
+        activity.State = gameStarted ? $"{modsCount} {(modsCount == 1 ? "Mod" : "Mods")} Loaded" : "Loading MelonLoader";
 
-        public void InitializeDiscord()
-        {
-            discordClient = new Discord.Discord(AppId, (ulong)CreateFlags.NoRequireDiscord);
-            discordClient.SetLogHook(LogLevel.Debug, DiscordLogHandler);
+        if (gameStarted)
+            activity.Timestamps.Start = gameStartedTime;
 
-            activityManager = discordClient.GetActivityManager();
-        }
+        activityManager?.UpdateActivity(activity, ResultHandler);
+    }
 
-        private void DiscordLogHandler(LogLevel level, string message)
-        {
-            switch (level)
-            {
-                case LogLevel.Info:
-                case LogLevel.Debug:
-                    LoggerInstance.Msg(message);
-                    break;
+    public void ResultHandler(Result result)
+    {
 
-                case LogLevel.Warn:
-                    LoggerInstance.Warning(message);
-                    break;
-
-                case LogLevel.Error:
-                    LoggerInstance.Error(message);
-                    break;
-            }
-        }
-
-        public void UpdateActivity()
-        {
-            var activity = new Activity
-            {
-                Details = $"Playing {MelonUtils.CurrentGameAttribute.Name}"
-            };
-
-            activity.Assets.LargeImage = "ml_icon";
-            activity.Name = $"MelonLoader {BuildInfo.Version}";
-            activity.Instance = true;
-            activity.Assets.LargeText = activity.Name;
-
-            var modsCount = MelonHandler.Mods.Count;
-            activity.State = GameStarted ? $"{modsCount} {(modsCount == 1 ? "Mod" : "Mods")} Loaded" : "Loading MelonLoader";
-
-            if (GameStarted)
-                activity.Timestamps.Start = gameStartedTime;
-
-            activityManager.UpdateActivity(activity, ResultHandler);
-        }
-
-        public void ResultHandler(Result result)
-        {
-
-        }
     }
 }
